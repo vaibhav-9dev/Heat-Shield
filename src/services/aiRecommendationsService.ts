@@ -37,7 +37,7 @@ export async function fetchCityAiRecommendations(
 ): Promise<CityAiRecommendation> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5500);
+    const timeoutId = setTimeout(() => controller.abort(), 22000);
 
     const res = await fetch('/api/agent/recommendations', {
       method: 'POST',
@@ -49,11 +49,11 @@ export async function fetchCityAiRecommendations(
 
     if (res.ok) {
       const data = await res.json();
-      if (data.mode === 'llm' && data.recommendation) {
+      if (data && data.recommendation) {
         return {
           cityName: params.cityName,
           generatedAt: new Date().toISOString(),
-          mode: 'llm',
+          mode: data.mode === 'llm' ? 'llm' : 'deterministic',
           executiveSummary: data.recommendation.executiveSummary || `Actionable heat resilience directives for ${params.cityName}.`,
           elninoSpecificDirectives: data.recommendation.elninoSpecificDirectives || [],
           problemSolvers: data.recommendation.problemSolvers || [],
@@ -62,7 +62,7 @@ export async function fetchCityAiRecommendations(
       }
     }
   } catch (err: any) {
-    console.warn('AI recommendations API unavailable, using tailored city fallback:', err?.message);
+    console.warn('AI recommendations client fetch fallback:', err?.message);
   }
 
   // Fallback: High-fidelity deterministic city recommendations

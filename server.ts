@@ -67,19 +67,131 @@ Return only the translated advisory text.`;
       mode: 'llm',
     });
   } catch (err: any) {
-    console.error('Gemini translation error:', err.message);
+    console.warn('Gemini translation fallback:', err?.message);
     res.status(200).json({
       translated: null,
       mode: 'template',
-      error: err.message,
+      error: err?.message,
     });
   }
 });
 
-// AI City Recommendations endpoint using server-side Gemini 3.8 Flash
+// In-memory cache for generated recommendations to deliver instant responses and prevent redundant API load
+const recommendationsCache = new Map<string, any>();
+
+function buildDeterministicServerRecommendations(params: any) {
+  const {
+    cityName = 'Bengaluru',
+    peakApparentC = 38.0,
+    severeCount = 0,
+    totalWards = 12,
+    scenario = 'live',
+    elninoProfile = {},
+    topWards = [],
+    gridDemand = null,
+    coolingSitesCount = 10,
+  } = params;
+
+  const topWardNames = (topWards || []).slice(0, 3).map((w: any) => w.name || w.ward_id || 'Core Zone');
+  const wardListStr = topWardNames.length > 0 ? topWardNames.join(', ') : `${cityName} core sectors`;
+  const isElNino = scenario === 'stress_plus_2c';
+  const surge = elninoProfile?.cityProjectedSurgeC || 2.0;
+  const ninoIndex = elninoProfile?.nino34_index || 1.2;
+  const regZone = elninoProfile?.regionalZone || 'Urban Basin';
+
+  return {
+    executiveSummary: isElNino
+      ? `${cityName} Municipal Administration must activate Stage-2 Heat Emergency protocols as NOAA Niño-3.4 (+${ninoIndex}°C) accelerates a projected +${surge}°C continental surge, putting ${severeCount} of ${totalWards} sectors under severe thermal stress.`
+      : `${cityName} Municipal Administration must activate Stage-1 Live Urban Heat Response protocols. Current weather monitoring indicates peak feels-like temperatures reaching ${Number(peakApparentC).toFixed(1)}°C with ${severeCount} of ${totalWards} sectors facing severe multi-factor thermal risk.`,
+    elninoSpecificDirectives: isElNino
+      ? [
+          {
+            title: `Mitigate +${surge}°C El Niño Surge in ${regZone}`,
+            description: `Execute thermal buffer protocols across ${cityName}: activate roadside high-pressure misting along arterial corridors and mandate reflective cool-roof coatings on all civic flat roofs before pre-monsoon heat peaks.`,
+            timeframe: 'Immediate (0-24 Hours)',
+            impact: 'Reduces localized urban surface temperature by up to 2.5°C in dense micro-clusters.',
+          },
+          {
+            title: `Counteract ${elninoProfile?.drySpellProbabilityPct || 75}% Dry Spell Risk & Groundwater Depletion`,
+            description: `With El Niño suppressing seasonal precipitation, pre-allocate dedicated municipal water tanker corridors for vulnerable settlements in ${wardListStr}. Ration non-essential commercial water extraction.`,
+            timeframe: 'Next 48 Hours',
+            impact: 'Secures baseline emergency hydration quota for at-risk populations.',
+          },
+          {
+            title: 'Delayed Monsoon Contingency & Heat-Health Action Extension',
+            description: `Extend operational readiness of public cooling centers through ${elninoProfile?.monsoonDelayRisk || 'Late Monsoon onset'}. Ensure hospital emergency wards maintain 20% reserved capacity for heat exhaustion triage.`,
+            timeframe: '7-14 Day Horizon',
+            impact: 'Prevents acute medical system congestion during peak heat-wave mortality windows.',
+          },
+        ]
+      : [
+          {
+            title: `Rapid Urban Heat Island Mitigation in ${regZone}`,
+            description: `Execute active thermal buffering across ${cityName}: deploy municipal misting cannons along arterial corridors and schedule reflective white-wash coating on low-income tin roofs in ${wardListStr}.`,
+            timeframe: 'Immediate (0-24 Hours)',
+            impact: 'Reduces localized surface temperatures by up to 2.0°C in high-exposure wards.',
+          },
+          {
+            title: 'Urban Hydration & Public Transit Protection',
+            description: `Establish dedicated municipal drinking water kiosks ('Pyaaos') and distribute oral rehydration salts (ORS) across major bus and metro stations serving ${wardListStr}.`,
+            timeframe: 'Next 24 Hours',
+            impact: 'Guarantees emergency hydration access for transit commuters and daily-wage laborers.',
+          },
+          {
+            title: `Public Cooling Refuge Activation (${coolingSitesCount} Facilities)`,
+            description: `Open and signpost ${coolingSitesCount} air-cooled public libraries, community halls, and civic facilities as walk-in heat shelters between 10:00 AM and 6:00 PM.`,
+            timeframe: 'Immediate Operational',
+            impact: 'Provides life-saving thermal relief to vulnerable individuals daily.',
+          },
+        ],
+    problemSolvers: [
+      {
+        problem: `High Thermal Concentration in Dense Urban Wards (${wardListStr})`,
+        solution: `Deploy mobile water misting tankers and install temporary shade canopies at high-density transit nodes and open marketplaces in ${wardListStr}.`,
+        targetWardsOrSectors: topWardNames.length > 0 ? topWardNames : [`${cityName} Central`, `${cityName} Market Hub`],
+        leadDepartment: 'Municipal Corporation (Disaster Management Cell)',
+      },
+      {
+        problem: `Grid Cooling Stress Window (${gridDemand ? `${gridDemand.stressWindow} @ ${gridDemand.peak_mw} MW` : '14:00 - 17:00 Peak Demand'})`,
+        solution: 'Issue voluntary load-shifting advisories to heavy industrial units, tech parks, and commercial complexes to pre-cool facilities before 13:00 and shift non-essential pumping to 21:00-05:00.',
+        targetWardsOrSectors: ['Industrial Estates', 'Commercial Centers', 'Tech Corridors'],
+        leadDepartment: 'State Electricity Supply Company (DISCOM)',
+      },
+      {
+        problem: 'Extreme Exposure of Outdoor Laborers & Informal Commuters',
+        solution: 'Strictly enforce mandatory work stoppage between 12:00 PM and 4:00 PM for construction and sanitation workers under State Heatwave Directives. Set up free Oral Rehydration Solution (ORS) booths at transit hubs.',
+        targetWardsOrSectors: ['Construction Zones', 'Railway Stations', 'Bus Termini'],
+        leadDepartment: 'Labour Welfare Commissioner & Transport Corporation',
+      },
+      {
+        problem: `Under-Utilized Public Cooling Infrastructure (${coolingSitesCount} Candidate Sites)`,
+        solution: 'Formally designate and signpost public libraries, community halls, and air-cooled government schools as walk-in cooling refuges equipped with drinking water and basic first aid.',
+        targetWardsOrSectors: ['Public Libraries', 'Community Halls', 'Civic Schools'],
+        leadDepartment: 'Department of Public Instruction & Social Welfare',
+      },
+    ],
+    priorityActions24to48h: isElNino
+      ? [
+          `Issue official Heat Alert to all ward engineers in ${cityName} highlighting the +${surge}°C El Niño surge.`,
+          `Inspect and activate ${coolingSitesCount} candidate cooling facilities with guaranteed uninterrupted power backup.`,
+          'Mandate suspension of hazardous outdoor physical labor between 12:00 PM and 4:00 PM across all infrastructure sites.',
+          'Coordinate with DISCOM to schedule transformer oil-cooling flushes in high-load commercial substations.',
+          `Dispatch mobile health vans equipped with IV fluids, cold packs, and ORS to ${wardListStr}.`,
+        ]
+      : [
+          `Issue immediate municipal heat health advisory across ${cityName} for current ${Number(peakApparentC).toFixed(1)}°C feels-like conditions.`,
+          `Activate ${coolingSitesCount} designated public cooling centers with drinking water and air cooling from 10:00 AM to 6:00 PM.`,
+          'Enforce mandatory outdoor work rest periods between 12:00 PM and 4:00 PM for construction and civic workers.',
+          `Deploy mobile drinking water tankers and ORS distribution points to transit hubs in ${wardListStr}.`,
+          'Alert emergency medical centers and PHCs to ready dedicated heat-stroke beds and IV hydration supplies.',
+        ],
+  };
+}
+
+// AI City Recommendations endpoint using server-side Gemini Flash
 app.post('/api/agent/recommendations', async (req, res) => {
   const {
-    cityName,
+    cityName = 'Bengaluru',
     latitude,
     longitude,
     peakApparentC,
@@ -92,12 +204,21 @@ app.post('/api/agent/recommendations', async (req, res) => {
     coolingSitesCount,
   } = req.body;
 
+  // Check cache first for rapid sub-50ms response
+  const cacheKey = `${String(cityName).toLowerCase()}_${scenario}_${Math.round(peakApparentC || 38)}`;
+  if (recommendationsCache.has(cacheKey)) {
+    return res.json(recommendationsCache.get(cacheKey));
+  }
+
   if (!process.env.GEMINI_API_KEY) {
-    return res.status(200).json({
-      recommendation: null,
+    const fallback = buildDeterministicServerRecommendations(req.body);
+    const payload = {
+      recommendation: fallback,
       mode: 'deterministic',
       message: 'GEMINI_API_KEY is not set. Using local deterministic city recommendations.',
-    });
+    };
+    recommendationsCache.set(cacheKey, payload);
+    return res.status(200).json(payload);
   }
 
   try {
@@ -215,42 +336,60 @@ Return ONLY a valid JSON object matching this schema:
     const callModelWithFallback = async () => {
       try {
         return await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            maxOutputTokens: 1200,
+          },
+        });
+      } catch (e: any) {
+        console.warn('Gemini 2.5 Flash attempt failed, retrying with gemini-3.8-flash:', e.message);
+        return await ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
-          },
-        });
-      } catch (e: any) {
-        console.warn('Gemini 3.8 Flash spike, retrying with gemini-flash-latest:', e.message);
-        return await ai.models.generateContent({
-          model: 'gemini-flash-latest',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
+            maxOutputTokens: 1200,
           },
         });
       }
     };
 
+    // Extended 20s timeout to allow full generation without premature cutoff
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('AI generation timeout')), 5000)
+      setTimeout(() => reject(new Error('AI generation timeout')), 20000)
     );
 
     const response: any = await Promise.race([callModelWithFallback(), timeoutPromise]);
 
     const parsed = JSON.parse(response.text || '{}');
-    res.json({
-      recommendation: parsed,
-      mode: 'llm',
-    });
-  } catch (err: any) {
-    console.error('Gemini recommendations error/timeout:', err.message);
-    res.status(200).json({
-      recommendation: null,
+    if (parsed && (parsed.executiveSummary || parsed.elninoSpecificDirectives)) {
+      const payload = {
+        recommendation: parsed,
+        mode: 'llm',
+      };
+      recommendationsCache.set(cacheKey, payload);
+      return res.json(payload);
+    }
+
+    // Fallback if returned JSON was empty
+    const fallback = buildDeterministicServerRecommendations(req.body);
+    const payload = {
+      recommendation: fallback,
       mode: 'deterministic',
-      error: err.message,
-    });
+    };
+    recommendationsCache.set(cacheKey, payload);
+    return res.json(payload);
+  } catch (err: any) {
+    console.warn('Gemini recommendations gracefully switched to tailored fallback:', err?.message || 'timeout');
+    const fallback = buildDeterministicServerRecommendations(req.body);
+    const payload = {
+      recommendation: fallback,
+      mode: 'deterministic',
+    };
+    recommendationsCache.set(cacheKey, payload);
+    return res.status(200).json(payload);
   }
 });
 
