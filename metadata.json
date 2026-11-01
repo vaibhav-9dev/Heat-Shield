@@ -1,0 +1,6 @@
+{
+  "name": "HeatShield",
+  "description": "HeatShield is a browser-based decision-support platform that tells city authorities in India where to act first during a heatwave, ranking heat risk across wards, forecasting electricity demand peaks, and optimizing cooling centers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
