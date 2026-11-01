@@ -90,11 +90,11 @@ export const Header: React.FC<HeaderProps> = ({
         theme === 'dark' ? 'bg-[#0B0F14] border-[#1F2937]' : 'bg-slate-50 border-slate-200'
       } ${isSimulated ? (theme === 'dark' ? 'bg-amber-950/20 border-amber-900/40' : 'bg-amber-50/70 border-amber-300') : ''}`}
     >
-      {/* SIMULATED Persistent Ribbon */}
+      {/* El Niño Status Ribbon - Only when changed to El Niño mode */}
       {isSimulated && (
         <div className="bg-amber-500 text-black px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider flex flex-wrap items-center justify-center gap-2 shadow-sm">
           <Flame className="w-4 h-4 fill-black text-black" />
-          <span>EL NIÑO CLIMATE STRESS: {currentCity.toUpperCase()} (+2.0 °C HEAT SURGE)</span>
+          <span>EL NIÑO CLIMATE STRESS MODE: {currentCity.toUpperCase()} (+2.0 °C HEAT SURGE ACTIVE)</span>
           <span className="text-[10px] bg-black text-amber-300 px-2 py-0.5 rounded font-bold tracking-normal animate-pulse">
             CRITICAL UPCOMING CONCERN • ACTION REQUIRED
           </span>
@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
               rel="noreferrer"
               className="underline font-bold ml-1 hover:text-white"
             >
-              NOAA CPC Niño-3.4 (+1.2 °C) &amp; WMO Advisory ↗
+              NOAA CPC Niño-3.4 (+1.2 °C) &amp; WMO Guidance ↗
             </a>
           </span>
         </div>

@@ -20,8 +20,9 @@ import {
   ChevronUp,
   Globe,
   CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
-import { DemandForecastResult, Plan, Scenario } from '../types/index.ts';
+import type { DemandForecastResult, Plan, Scenario, CityEnsoProfile } from '../types/index.ts';
 
 interface HeroStripProps {
   onRunPlanner: () => void;
@@ -31,6 +32,7 @@ interface HeroStripProps {
   totalWards: number;
   demandForecast: DemandForecastResult | null;
   onNavigateDemand: () => void;
+  onNavigateAiRecommendations?: () => void;
   selectedDay: string;
   isStale: boolean;
   theme: 'dark' | 'light';
@@ -41,6 +43,7 @@ interface HeroStripProps {
   scenario: Scenario;
   baselineSevereCount?: number;
   baselinePeakApparentC?: number;
+  ensoProfile: CityEnsoProfile;
 }
 
 export const HeroStrip: React.FC<HeroStripProps> = ({
@@ -51,6 +54,7 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
   totalWards,
   demandForecast,
   onNavigateDemand,
+  onNavigateAiRecommendations,
   selectedDay,
   isStale,
   theme,
@@ -61,40 +65,55 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
   scenario,
   baselineSevereCount = 0,
   baselinePeakApparentC,
+  ensoProfile,
 }) => {
   const isDark = theme === 'dark';
-  const isElNino = scenario === 'stress_plus_2c';
   const [showElNinoDetails, setShowElNinoDetails] = useState(true);
 
   const severeWardDelta = Math.max(0, severeCount - baselineSevereCount);
+  const isSimulated = scenario === 'stress_plus_2c';
 
   return (
     <div className={`border-b ${isDark ? 'bg-[#0B0F14] border-[#1F2937]' : 'bg-slate-100/60 border-slate-200'}`}>
       <div className="max-w-[1700px] mx-auto px-4 py-3 space-y-2.5">
-        {/* EL NIÑO CLIMATE IMPACT DIRECTIVE - Prominently Highlighted Upcoming Concern */}
-        {isElNino && (
+        {/* EL NIÑO CLIMATE IMPACT DIRECTIVE - Only when changed to El Niño mode */}
+        {isSimulated && (
           <div className="rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-red-950/30 to-slate-900/60 p-3.5 shadow-xl transition-all animate-fade-in">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-amber-500 text-black flex items-center justify-center font-bold">
-                  <Flame className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-lg bg-amber-500 text-black flex items-center justify-center font-bold shrink-0 shadow-md">
+                  <Flame className="w-4 h-4 fill-black" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-sm text-amber-300 uppercase tracking-wide">
                       El Niño Climate Stress Directives: {cityName}
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-bold uppercase animate-pulse">
-                      Critical Upcoming Concern
+                      Active Regional Anomaly: +{ensoProfile.cityProjectedSurgeC}°C Surge
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase">
+                      NOAA CPC: +{ensoProfile.nino34_index}°C
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    NOAA CPC Niño-3.4 anomaly (+1.2 °C) &amp; WMO consensus project heightened continental heat accumulation over {cityName}.
+                    <strong>{ensoProfile.regionalZone}</strong> — {ensoProfile.summary}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
+                {onNavigateAiRecommendations && (
+                  <button
+                    onClick={onNavigateAiRecommendations}
+                    className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-semibold flex items-center gap-1.5 transition shadow-sm shadow-purple-600/30"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>AI City Directives</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                )}
+
                 <a
                   href="https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_advisory/ensodisc.shtml"
                   target="_blank"
@@ -102,93 +121,103 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
                   className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-[11px] font-mono font-medium flex items-center gap-1.5 transition border border-slate-700"
                 >
                   <Globe className="w-3.5 h-3.5 text-blue-400" />
-                  <span>NOAA Bulletin ↗</span>
+                  <span>NOAA Feed ↗</span>
                 </a>
+
                 <button
                   onClick={() => setShowElNinoDetails(!showElNinoDetails)}
                   className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                  aria-label="Toggle El Niño impact details"
                 >
                   {showElNinoDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Impact Highlights Breakdown */}
+            {/* Impact Highlights Breakdown for the Selected City */}
             {showElNinoDetails && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2.5 text-xs">
-                {/* 1. Temperature Escalation */}
+                {/* 1. Live + Anomaly Temperature Surge */}
                 <div className="p-2.5 rounded-xl bg-slate-900/80 border border-amber-500/20">
                   <span className="text-[10px] font-mono uppercase text-amber-400 font-semibold block">
-                    Thermal Escalation
+                    Thermal Surge for {cityName}
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-bold font-mono text-white">
                       {peakApparentC ? peakApparentC.toFixed(1) : '--'} °C
                     </span>
                     <span className="text-xs font-mono font-bold text-red-400">
-                      (+2.0 °C surge)
+                      (+{ensoProfile.cityProjectedSurgeC}°C El Niño surge)
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    Severe heat-index threshold breached across {cityName}
+                    Regional heat accumulation over seasonal baseline
                   </span>
                 </div>
 
-                {/* 2. Severe Wards Jump */}
+                {/* 2. Dry Spell & Monsoon Delay Risk */}
                 <div className="p-2.5 rounded-xl bg-slate-900/80 border border-amber-500/20">
-                  <span className="text-[10px] font-mono uppercase text-red-400 font-semibold block">
-                    Sectors Pushed to Severe
+                  <span className="text-[10px] font-mono uppercase text-blue-400 font-semibold block">
+                    Dry Spell &amp; Monsoon Impact
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-xl font-bold font-mono text-red-400">
-                      {severeCount}
+                    <span className="text-xl font-bold font-mono text-blue-300">
+                      {ensoProfile.drySpellProbabilityPct}%
                     </span>
-                    <span className="text-xs font-mono text-slate-400">
-                      wards (vs {baselineSevereCount} live)
-                    </span>
+                    <span className="text-xs font-mono text-slate-400">dry spell prob</span>
                   </div>
-                  <span className="text-[10px] text-amber-400 font-mono block mt-0.5">
-                    {severeWardDelta > 0 ? `+${severeWardDelta} newly vulnerable sectors` : 'Elevated across all sectors'}
+                  <span className="text-[10px] text-slate-300 block mt-0.5 truncate" title={ensoProfile.monsoonDelayRisk}>
+                    {ensoProfile.monsoonDelayRisk}
                   </span>
                 </div>
 
-                {/* 3. Grid Thermal Stress Window */}
+                {/* 3. Grid Thermal & Cooling Strain */}
                 <div className="p-2.5 rounded-xl bg-slate-900/80 border border-amber-500/20">
                   <span className="text-[10px] font-mono uppercase text-yellow-400 font-semibold block">
-                    Grid Cooling Strain
+                    Grid Cooling Load Multiplier
                   </span>
-                  <div className="mt-1 font-mono font-bold text-base text-yellow-300">
-                    {demandForecast
-                      ? `${demandForecast.stress_window.start_hour}:00 - ${demandForecast.stress_window.end_hour}:00`
-                      : 'Extended afternoon window'}
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-xl font-bold font-mono text-yellow-300">
+                      {ensoProfile.gridPeakMultiplier}x
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">peak AC stress</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    {demandForecast ? `Peak: ${demandForecast.peak_mw} MW with high AC load` : 'Peak AC and fan load clustering'}
+                    {demandForecast ? `Peak: ${demandForecast.peak_mw} MW (${demandForecast.stress_window.start_hour}:00-${demandForecast.stress_window.end_hour}:00)` : 'Extended afternoon cooling spike'}
                   </span>
                 </div>
 
-                {/* 4. Mandatory Precautionary Action */}
+                {/* 4. Priority City Action */}
                 <div className="p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/30 flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] font-mono uppercase text-amber-300 font-bold block">
-                      Immediate Preparedness Action
+                      Immediate City Priority
                     </span>
-                    <p className="text-[11px] text-slate-200 mt-0.5 leading-snug">
-                      Pre-designate public cooling shelters and mandate outdoor worker rest pauses during peak afternoon hours.
+                    <p className="text-[11px] text-slate-200 mt-0.5 leading-snug line-clamp-2" title={ensoProfile.immediatePriority}>
+                      {ensoProfile.immediatePriority}
                     </p>
                   </div>
+                  {onNavigateAiRecommendations && (
+                    <button
+                      onClick={onNavigateAiRecommendations}
+                      className="mt-1.5 text-[10px] font-mono text-purple-300 hover:text-white font-semibold flex items-center gap-1 underline"
+                    >
+                      <span>Open full AI recommendations</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Stale Plan Alert Banner (E17, L19) */}
+        {/* Stale Plan Alert Banner */}
         {isStale && (
           <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-center justify-between font-mono">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-400" />
-              <span>Plan is out of date. Scenario or tuning parameters have changed. Run Planner again.</span>
+              <span>Plan is out of date. Scenario or parameters have changed. Run Planner again.</span>
             </div>
             <button
               onClick={onRunPlanner}
@@ -199,7 +228,7 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
           </div>
         )}
 
-        {/* Warning Badge for Satellite fallback (E6, L5) */}
+        {/* Warning Badge for Satellite fallback */}
         {satelliteWarning && (
           <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-blue-400 shrink-0" />
@@ -231,13 +260,13 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
         ) : null}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
-          {/* Action Button & Subtitle */}
-          <div className="lg:col-span-5 flex items-center gap-3">
+          {/* Action Buttons: Run Planner & AI Recommendations */}
+          <div className="lg:col-span-5 flex flex-wrap items-center gap-2.5">
             <button
               onClick={onRunPlanner}
               disabled={isRunning}
               aria-label="Run Planner"
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg flex items-center gap-2.5 shrink-0 ${
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs tracking-wide transition-all shadow-lg flex items-center gap-2 shrink-0 ${
                 isRunning
                   ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white shadow-blue-600/30 ring-2 ring-blue-500/50'
@@ -256,6 +285,20 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
               )}
             </button>
 
+            {onNavigateAiRecommendations && (
+              <button
+                onClick={onNavigateAiRecommendations}
+                className={`px-3.5 py-2.5 rounded-xl font-bold text-xs tracking-wide transition-all shadow-md active:scale-[0.98] text-white flex items-center gap-1.5 ${
+                  isSimulated
+                    ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/20 ring-1 ring-purple-400/40'
+                    : 'bg-purple-700/80 hover:bg-purple-600 shadow-purple-900/20 ring-1 ring-purple-500/30'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-purple-200" />
+                <span>{isSimulated ? 'El Niño AI Directives' : 'AI Recommendations'}</span>
+              </button>
+            )}
+
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
@@ -269,12 +312,12 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
                         : 'bg-slate-700/50 text-slate-300 border border-slate-600/50'
                     }`}
                   >
-                    {currentPlan.mode === 'llm' ? 'LLM Verified' : 'Template mode (no LLM)'}
+                    {currentPlan.mode === 'llm' ? 'LLM Verified' : 'Template mode'}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                Runs deterministic multi-factor risk scoring, greedy maximal coverage, and AI agent verification across live public feeds.
+                Multi-factor risk scoring, greedy maximal coverage, and Gemini AI agent recommendations.
               </p>
             </div>
           </div>
@@ -292,14 +335,14 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
                   <Thermometer className="w-3.5 h-3.5 text-amber-400" />
                   Peak Feels-Like
                 </span>
-                <span className="text-[9px] font-mono text-slate-400">
-                  {isElNino ? '+2°C El Niño' : 'Open-Meteo'}
+                <span className={`text-[9px] font-mono font-bold ${isSimulated ? 'text-amber-400' : 'text-slate-400'}`}>
+                  {isSimulated ? `+${ensoProfile.cityProjectedSurgeC}°C El Niño` : 'Open-Meteo'}
                 </span>
               </div>
               <div className="mt-1 flex items-baseline gap-1.5">
                 {peakApparentC !== null ? (
                   <>
-                    <span className={`text-xl font-mono font-bold ${isElNino ? 'text-amber-400' : 'text-white'}`}>
+                    <span className={`text-xl font-mono font-bold ${isSimulated ? 'text-amber-400' : 'text-white'}`}>
                       {peakApparentC.toFixed(1)}
                     </span>
                     <span className="text-xs text-slate-400 font-mono">°C</span>
@@ -309,7 +352,7 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
                 )}
               </div>
               <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                {isElNino ? 'Elevated under El Niño scenario' : 'Median ward apparent max'}
+                {isSimulated ? `Includes regional El Niño surge (+${ensoProfile.cityProjectedSurgeC}°C)` : 'Median ward apparent max'}
               </div>
             </div>
 
@@ -341,7 +384,7 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
                 )}
               </div>
               <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                {isElNino ? `${severeWardDelta > 0 ? `+${severeWardDelta}` : 'Peak'} severe surge` : 'Multi-factor risk model'}
+                {isSimulated ? `${severeWardDelta > 0 ? `+${severeWardDelta}` : 'Elevated'} severe surge under El Niño` : 'Multi-factor risk model'}
               </div>
             </div>
 
@@ -375,7 +418,11 @@ export const HeroStrip: React.FC<HeroStripProps> = ({
                 )}
               </div>
               <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                {demandForecast ? `Peak: ${demandForecast.peak_mw} MW` : '7-day load shifting'}
+                {demandForecast
+                  ? isSimulated
+                    ? `Peak: ${demandForecast.peak_mw} MW (${ensoProfile.gridPeakMultiplier}x El Niño cooling)`
+                    : `Peak: ${demandForecast.peak_mw} MW`
+                  : '7-day load shifting'}
               </div>
             </div>
           </div>

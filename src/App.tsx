@@ -4,10 +4,12 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Sparkles } from 'lucide-react';
 import { Header } from './components/Header.tsx';
 import { HeroStrip } from './components/HeroStrip.tsx';
 import { MapView } from './components/Map.tsx';
 import { ActionPlanTab } from './components/ActionPlanTab.tsx';
+import { AiRecommendationsTab } from './components/AiRecommendationsTab.tsx';
 import { RiskRankingTab } from './components/RiskRankingTab.tsx';
 import { DemandTab } from './components/DemandTab.tsx';
 import { SourcesTab } from './components/SourcesTab.tsx';
@@ -15,8 +17,10 @@ import { WardDrawer } from './components/WardDrawer.tsx';
 import { AgentTraceDrawer } from './components/AgentTraceDrawer.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
 
-import {
+import type {
   AppSettings,
+  CityAiRecommendation,
+  CityEnsoProfile,
   DemandForecastResult,
   DemandModel,
   Plan,
@@ -37,11 +41,13 @@ import { fetchBuildingAndGreenFactors, WardBuildingFactors } from './services/bu
 import { fetchSatelliteLayer, SatelliteResult } from './services/satellite.ts';
 import { fetchGoogleEarthEngineData, EarthEngineData } from './services/earthEngineService.ts';
 import { fetchSentinelVegetationData, SentinelVegetationData } from './services/sentinelService.ts';
+import { getCityEnsoProfile } from './services/ensoService.ts';
+import { fetchCityAiRecommendations } from './services/aiRecommendationsService.ts';
 import { calculateWardRisks } from './engine/risk.ts';
 import { runPlanningAgent } from './agent/agentLoop.ts';
 import { ToolContext } from './agent/tools.ts';
 
-type ActiveTab = 'plan' | 'ranking' | 'demand' | 'sources';
+type ActiveTab = 'plan' | 'recommendations' | 'ranking' | 'demand' | 'sources';
 
 export default function App() {
   // Theme state: dark is default (FIELD 7)
@@ -98,6 +104,16 @@ export default function App() {
 
   // Selected Ward Drawer
   const [selectedWardId, setSelectedWardId] = useState<string | null>(null);
+
+  // Live City El Niño Profile (NOAA CPC Niño-3.4 + Regional Teleconnection)
+  const cityEnsoProfile = useMemo<CityEnsoProfile>(
+    () => getCityEnsoProfile(currentCityName, cityCenter[0], cityCenter[1]),
+    [currentCityName, cityCenter]
+  );
+
+  // AI City Recommendations
+  const [aiRecommendation, setAiRecommendation] = useState<CityAiRecommendation | null>(null);
+  const [isLoadingAiRecommendations, setIsLoadingAiRecommendations] = useState(false);
 
   // Source Statuses (All 7 Sources)
   const [sources, setSources] = useState<SourceStatus[]>([
@@ -481,6 +497,67 @@ export default function App() {
     }
   };
 
+  // Generate / Refresh AI Recommendations for the current city
+  const handleGenerateAiRecommendations = useCallback(async () => {
+    setIsLoadingAiRecommendations(true);
+    try {
+      const topWardsList = wardRisks.slice(0, 5).map((r) => {
+        const w = wards.find((ward) => ward.ward_id === r.ward_id);
+        const bf = buildingFactors.get(r.ward_id);
+        return {
+          name: w?.name || r.ward_id,
+          riskScore: r.risk_score,
+          riskClass: r.risk_class,
+          buildingDensity: bf?.building_density_per_km2 ?? null,
+          greenCover: bf?.green_cover_osm ?? null,
+        };
+      });
+
+      const rec = await fetchCityAiRecommendations({
+        cityName: currentCityName,
+        latitude: cityCenter[0],
+        longitude: cityCenter[1],
+        peakApparentC: weatherData ? weatherData.peakApparentOverall : 38.0,
+        severeCount: wardRisks.filter((r) => r.risk_class === 'severe').length,
+        totalWards: wards.length,
+        scenario,
+        elninoProfile: cityEnsoProfile,
+        topWards: topWardsList,
+        gridDemand: demandForecast
+          ? {
+              peak_mw: demandForecast.peak_mw,
+              stressWindow: `${demandForecast.stress_window.start_hour}:00 - ${demandForecast.stress_window.end_hour}:00`,
+            }
+          : null,
+        coolingSitesCount: candidateSites.length,
+      });
+
+      setAiRecommendation(rec);
+    } catch (err: any) {
+      console.error('Failed to generate AI city recommendations:', err);
+    } finally {
+      setIsLoadingAiRecommendations(false);
+    }
+  }, [
+    currentCityName,
+    cityCenter,
+    weatherData,
+    wardRisks,
+    wards,
+    buildingFactors,
+    cityEnsoProfile,
+    demandForecast,
+    candidateSites.length,
+    scenario,
+  ]);
+
+  // Automatically update AI recommendations when city data, scenario, or ward risk calculations settle
+  useEffect(() => {
+    if (wardRisks.length > 0) {
+      handleGenerateAiRecommendations();
+    }
+  }, [currentCityName, scenario, wardRisks.length, cityEnsoProfile.regionalZone]);
+
   // Derived KPI Counts
   const severeCount = wardRisks.filter((r) => r.risk_class === 'severe').length;
   const gridCellCount = wards.filter((w) => w.is_grid_cell).length;
@@ -554,7 +631,7 @@ export default function App() {
         peakApparentC={
           weatherData
             ? scenario === 'stress_plus_2c'
-              ? weatherData.peakApparentOverall + 2.0
+              ? weatherData.peakApparentOverall + cityEnsoProfile.cityProjectedSurgeC
               : weatherData.peakApparentOverall
             : null
         }
@@ -562,6 +639,7 @@ export default function App() {
         totalWards={wards.length}
         demandForecast={demandForecast}
         onNavigateDemand={() => setActiveTab('demand')}
+        onNavigateAiRecommendations={() => setActiveTab('recommendations')}
         selectedDay={selectedDay || weatherData?.peakDayOverall || 'Today'}
         isStale={isPlanStale}
         theme={theme}
@@ -572,6 +650,7 @@ export default function App() {
         scenario={scenario}
         baselineSevereCount={baselineSevereCount}
         baselinePeakApparentC={weatherData?.peakApparentOverall}
+        ensoProfile={cityEnsoProfile}
       />
 
       {/* Main Split: Map (60%) & Right Control Panel (40%) */}
@@ -612,10 +691,10 @@ export default function App() {
         {/* Right Panel Tabs */}
         <div className="w-full lg:w-[42%] xl:w-[40%] flex flex-col bg-[#0B0F14]/70 backdrop-blur overflow-y-auto">
           {/* Tab Navigation Strip */}
-          <div className="flex items-center border-b border-slate-800 bg-[#121821] text-xs font-semibold px-2 sticky top-0 z-10">
+          <div className="flex items-center border-b border-slate-800 bg-[#121821] text-xs font-semibold px-2 sticky top-0 z-10 overflow-x-auto">
             <button
               onClick={() => setActiveTab('plan')}
-              className={`px-4 py-3 border-b-2 transition flex items-center gap-1.5 ${
+              className={`px-3 py-3 border-b-2 transition flex items-center gap-1.5 shrink-0 ${
                 activeTab === 'plan'
                   ? 'border-blue-500 text-blue-400 font-bold'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -623,13 +702,28 @@ export default function App() {
             >
               Action Plan
               {currentPlan && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block ml-1" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block ml-0.5" />
               )}
             </button>
 
             <button
+              onClick={() => setActiveTab('recommendations')}
+              className={`px-3 py-3 border-b-2 transition flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'recommendations'
+                  ? 'border-purple-500 text-purple-400 font-bold'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <span>{scenario === 'stress_plus_2c' ? 'El Niño AI Directives' : 'AI Recommendations'}</span>
+              <span className="text-[9px] font-mono px-1 rounded bg-purple-500/20 text-purple-300 font-bold">
+                Gemini
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('ranking')}
-              className={`px-4 py-3 border-b-2 transition flex items-center gap-1.5 ${
+              className={`px-3 py-3 border-b-2 transition flex items-center gap-1.5 shrink-0 ${
                 activeTab === 'ranking'
                   ? 'border-blue-500 text-blue-400 font-bold'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -640,7 +734,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab('demand')}
-              className={`px-4 py-3 border-b-2 transition flex items-center gap-1.5 ${
+              className={`px-3 py-3 border-b-2 transition flex items-center gap-1.5 shrink-0 ${
                 activeTab === 'demand'
                   ? 'border-blue-500 text-blue-400 font-bold'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -656,7 +750,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab('sources')}
-              className={`px-4 py-3 border-b-2 transition flex items-center gap-1.5 ${
+              className={`px-3 py-3 border-b-2 transition flex items-center gap-1.5 shrink-0 ${
                 activeTab === 'sources'
                   ? 'border-blue-500 text-blue-400 font-bold'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -674,6 +768,18 @@ export default function App() {
                 theme={theme}
                 onRunPlanner={handleRunPlanner}
                 isRunning={isPlanning}
+              />
+            )}
+
+            {activeTab === 'recommendations' && (
+              <AiRecommendationsTab
+                recommendation={aiRecommendation}
+                ensoProfile={cityEnsoProfile}
+                cityName={currentCityName}
+                scenario={scenario}
+                isLoading={isLoadingAiRecommendations}
+                onRefresh={handleGenerateAiRecommendations}
+                theme={theme}
               />
             )}
 

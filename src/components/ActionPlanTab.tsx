@@ -164,12 +164,12 @@ export const ActionPlanTab: React.FC<ActionPlanTabProps> = ({
         </div>
       )}
 
-      {/* El Niño Climate Scenario Warning Banner - Upcoming Concern Directives */}
+      {/* El Niño Climate Advisory Directive Banner - Only in El Niño Mode */}
       {plan.scenario === 'stress_plus_2c' && (
         <div className="p-3.5 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-red-950/30 to-slate-900/60 shadow-lg animate-fade-in">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-amber-500 text-black flex items-center justify-center shrink-0 font-bold mt-0.5">
-              <Flame className="w-4 h-4" />
+              <Flame className="w-4 h-4 fill-black" />
             </div>
             <div className="flex-1">
               <div className="flex flex-wrap items-center justify-between gap-1">
@@ -177,7 +177,7 @@ export const ActionPlanTab: React.FC<ActionPlanTabProps> = ({
                   El Niño Thermal Stress Active (+2.0 °C Temperature Surge)
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-bold uppercase animate-pulse">
-                  Upcoming Concern: Immediate Action Needed
+                  El Niño Stress Scenario Active
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
@@ -185,7 +185,7 @@ export const ActionPlanTab: React.FC<ActionPlanTabProps> = ({
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2 text-[10px] font-mono">
                 <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                  Thermal Escalation: +2.0 °C
+                  NOAA Niño-3.4: +1.2 °C Anomaly
                 </span>
                 <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-300 border border-red-500/30">
                   Public Shelters: Prioritised Activation

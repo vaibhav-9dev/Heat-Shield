@@ -55,6 +55,40 @@ export interface EnsoStatus {
   wmo_url: string;
 }
 
+export interface CityEnsoProfile {
+  cityName: string;
+  regionalZone: string;
+  nino34_index: number;
+  cityProjectedSurgeC: number;
+  alertLevel: 'Severe' | 'Elevated' | 'High' | 'Critical';
+  summary: string;
+  monsoonDelayRisk: string;
+  drySpellProbabilityPct: number;
+  gridPeakMultiplier: number;
+  waterStressLevel: string;
+  immediatePriority: string;
+}
+
+export interface CityAiRecommendation {
+  cityName: string;
+  generatedAt: string;
+  mode: 'llm' | 'deterministic';
+  executiveSummary: string;
+  elninoSpecificDirectives: Array<{
+    title: string;
+    description: string;
+    timeframe: string;
+    impact: string;
+  }>;
+  problemSolvers: Array<{
+    problem: string;
+    solution: string;
+    targetWardsOrSectors: string[];
+    leadDepartment: string;
+  }>;
+  priorityActions24to48h: string[];
+}
+
 export type PeakType = 
   | 'transit'
   | 'commercial'
